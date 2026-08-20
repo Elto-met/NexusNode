@@ -3,6 +3,26 @@ import https from 'node:https'
 import http from 'node:http'
 import fs from 'node:fs'
 
+const debug = {
+    //Create a log  file in the debug directory
+    log: function(data, severity){
+        //Get the time of error
+        let logTime = new Date().toISOString()
+
+        try{
+            //Write data to the latest log
+            fs.writeFileSync(`${server.hostOptions.rootDirectory}/serverResources/debug/logs/latest.log`, `TIME OF LOG: ${logTime} \nSEVERITY: ${severity} \n${data}`)
+
+            //Write data to a seperate log
+            fs.writeFileSync(`${server.hostOptions.rootDirectory}/serverResources/debug/logs/${logTime}.log`, `TIME OF LOG: ${logTime} \nSEVERITY: ${severity} \n${data}`)
+
+            console.log(`Created log with severity: ${severity} at ${server.hostOptions.rootDirectory}/serverResources/debug/logs/${logTime}`)
+        }catch(error){
+            console.error(error)
+        }
+    }
+}
+
 const server = {
     hostOptions: {
         //Path to the directory the server files are stored in
@@ -29,7 +49,7 @@ const server = {
             try{
                 server.requests.pageNotFoundData = fs.readFileSync(`${server.hostOptions.rootDirectory}/serverResources/pageNotFound/index.html`)
             }catch(error){
-                console.error(`Error finding 404 page: ${error}`)
+                debug.log(`Error finding 404 page: ${error}`, "ERROR")
             }
         },
 
@@ -41,8 +61,7 @@ const server = {
             try{
                 this.MIMETypes = JSON.parse(fs.readFileSync(`${server.hostOptions.rootDirectory}/serverResources/mimeData/mimeTypes.json`)).mimeData
             }catch(error){
-                console.error(error)
-                console.error(`Error parsing MIME data file; please make sure 'mimeTypes.json' is in the directory '${server.hostOptions.rootDirectory}/serverResources/mimeData/'.`)
+                debug.log(`Error parsing MIME data file; please make sure mimeTypes.json is in the directory '${server.hostOptions.rootDirectory}/serverResources/mimeData/'. \n${error}`, "ERROR")
                 process.exit(1)
             }
         },
@@ -54,7 +73,7 @@ const server = {
             }else if(request.method == `POST`){
                 server.requests.post(request, response)
             }else{
-                console.error(`Invalid request method presented: ${request.method}`)
+                debug.log(`Invalid request method presented: ${request.method}`)
             }
         },
 
@@ -81,16 +100,20 @@ const server = {
             }else{
                 //Handle requests with the full file path. i.e: 'https://www.domain.com/file.extension'
                 if(request.url.includes(".")){
-                    filepath += `/${request.url}`
+                    try{
+                        filepath += `/${request.url}`
 
-                    //Get the requested file's file extension.
-                    let fileExtension = request.url.split(".")[1]
+                        //Get the requested file's file extension.
+                        let fileExtension = request.url.split(".")[1]
 
-                    //Find MIME type with corresponding file extension.
-                    let rawMimeType = server.requests.MIMETypes.find(mimes => mimes.extensions.includes(fileExtension))
-                    
-                    //Set MIME type variable from the found MIME type
-                    MIMEType = rawMimeType.mime
+                        //Find MIME type with corresponding file extension.
+                        let rawMimeType = server.requests.MIMETypes.find(mimes => mimes.extensions.includes(fileExtension))
+                        
+                        //Set MIME type variable from the found MIME type
+                        MIMEType = rawMimeType.mime
+                    }catch(error){
+                        debug.log(`${error}`, "ERROR")
+                    }
                 }
                 //Handle requests with no direct file path. i.e: 'https://www.domain.com/folder/'
                 else{
@@ -112,7 +135,7 @@ const server = {
                 fileStream.pipe(response)
 
                 fileStream.on('error', (error) => {
-                    console.error(`Error reading file stream: ${error}`)
+                    debug.log(`Error reading file stream: ${error}`)
                     response.end()
                 })
             }
@@ -143,7 +166,7 @@ const server = {
             server.ssl.key = fs.readFileSync(`${server.hostOptions.rootDirectory}/serverResources/ssl/key.pem`)
             server.ssl.cert = fs.readFileSync(`${server.hostOptions.rootDirectory}/serverResources/ssl/cert.pem`)
         }catch(error){
-            console.error(`Could not find SSL certificate or key; resorting to http server.`)
+            console.log(`Could not find SSL certificate or key; resorting to http server.`)
         }
         
         server.requests.importMimeTypes()
