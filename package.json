@@ -1,0 +1,10 @@
+{
+    "name": "NexusNode",
+    "version": "1.0.0",
+    "description": "A simple Node.JS based webserver, in Docker!", 
+    "type": "module",
+    "main": "server/server.mjs",
+    "scripts": {
+        "start": "noder server/server.mjs"
+    }
+}
